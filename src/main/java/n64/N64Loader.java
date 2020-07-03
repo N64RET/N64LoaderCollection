@@ -65,7 +65,7 @@ public class N64Loader extends AbstractLibrarySupportLoader {
         }
 
         mApi = new FlatProgramAPI(program, monitor);
-        addHeaderInfo(mRom);
+        addHeaderInfo();
 
         // create the n64 memory map / add hardware registers
         try {
@@ -88,7 +88,7 @@ public class N64Loader extends AbstractLibrarySupportLoader {
 
     }
 
-    protected void loadGame() {
+    protected void loadGame()  throws CancelledException {
         long entrypoint = mRom.getFixedEntrypoint();
 
         ByteBuffer buff = ByteBuffer.wrap(mRom.mRawRom);
@@ -265,22 +265,22 @@ public class N64Loader extends AbstractLibrarySupportLoader {
         }
     }
 
-    protected void addHeaderInfo(N64Rom rom) {
+    protected void addHeaderInfo() {
         var props = mApi.getCurrentProgram().getOptions(Program.PROGRAM_INFO);
-        N64CheckSum sum = new N64CheckSum(rom.mRawRom, rom.mCic);
+        N64CheckSum sum = new N64CheckSum(mRom.mRawRom, mRom.mCic);
         props.setString("N64 ClockRate",
-                ((rom.getClockRate() == 0) ? "Default" : String.format("%dHz", rom.getClockRate())));
-        props.setString("N64 EntryPoint", String.format("%08X", rom.getEntryPoint()));
-        props.setString("N64 Release Address", String.format("%08X", rom.getReleaseAddress()));
-        props.setString("N64 CRC1", String.format("%08X", rom.getCRC1())
-                + ((mRom.mCic == N64Cic.Unknown) ? "" : (sum.getCRC1() == rom.getCRC1() ? " (VALID)" : " (INVALID)")));
-        props.setString("N64 CRC2", String.format("%08X", rom.getCRC2())
-                + ((mRom.mCic == N64Cic.Unknown) ? "" : (sum.getCRC2() == rom.getCRC2() ? " (VALID)" : " (INVALID)")));
-        props.setString("N64 Name", rom.getName());
-        props.setString("N64 Game Code", rom.getGameCode());
-        props.setString("N64 Mask ROM Version", String.format("%02X", rom.getVersion()));
-        props.setString("N64 Libultra Version", String.format("OS2.0%c", rom.getLibultraVersion()));
-        props.setString("N64 CIC chip", rom.mCic.mName);
+                ((mRom.getClockRate() == 0) ? "Default" : String.format("%dHz", mRom.getClockRate())));
+        props.setString("N64 EntryPoint", String.format("%08X", mRom.getEntryPoint()));
+        props.setString("N64 Release Address", String.format("%08X", mRom.getReleaseAddress()));
+        props.setString("N64 CRC1", String.format("%08X", mRom.getCRC1())
+                + ((mRom.mCic == N64Cic.Unknown) ? "" : (sum.getCRC1() == mRom.getCRC1() ? " (VALID)" : " (INVALID)")));
+        props.setString("N64 CRC2", String.format("%08X", mRom.getCRC2())
+                + ((mRom.mCic == N64Cic.Unknown) ? "" : (sum.getCRC2() == mRom.getCRC2() ? " (VALID)" : " (INVALID)")));
+        props.setString("N64 Name", mRom.getName());
+        props.setString("N64 Game Code", mRom.getGameCode());
+        props.setString("N64 Mask ROM Version", String.format("%02X", mRom.getVersion()));
+        props.setString("N64 Libultra Version", String.format("OS2.0%c", mRom.getLibultraVersion()));
+        props.setString("N64 CIC chip", mRom.mCic.mName);
     }
 
     @Override

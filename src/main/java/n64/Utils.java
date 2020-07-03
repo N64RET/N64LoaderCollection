@@ -1,7 +1,6 @@
 package n64;
 
 import ghidra.program.flatapi.FlatProgramAPI;
-import ghidra.util.Msg;
 
 public class Utils {
 
