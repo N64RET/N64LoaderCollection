@@ -27,7 +27,7 @@ public class N64CheckSum {
         return CRC2;
     }
 
-    public N64CheckSum(byte[] rom, int cic)
+    public N64CheckSum(byte[] rom, N64Cic cic)
     {
         try {
             Compute(rom, cic);
@@ -37,7 +37,7 @@ public class N64CheckSum {
         }
     }
 
-    private void Compute(byte[] rom, int cic) throws N64CheckSumException {
+    private void Compute(byte[] rom, N64Cic cic) throws N64CheckSumException {
         if (rom.length < CHECKSUM_START)
             throw new N64CheckSumException("Invalid File Lenght");
 
@@ -47,17 +47,18 @@ public class N64CheckSum {
 
         // init seeds
         switch (cic) {
-        case 6101:
-        case 6102:
+        case CIC_NUS_6101:
+        case CIC_NUS_6102:
+        case LylatWars:
             seed = 0xF8CA4DDC;
             break;
-        case 6103:
+        case CIC_NUS_6103:
             seed = 0xA3886759;
             break;
-        case 6105:
+        case CIC_NUS_6105:
             seed = 0xDF26F436;
             break;
-        case 6106:
+        case CIC_NUS_6106:
             seed = 0x1FEA617A;
             break;
         default:
@@ -83,16 +84,16 @@ public class N64CheckSum {
             else
                 t2 ^= t6 ^ d;
 
-            if (cic == 6105)
+            if (cic == N64Cic.CIC_NUS_6105)
                 t1 += ByteBuffer.wrap(rom).getInt(0x0750 + (pos & 0xFF)) ^ d;
             else
                 t1 += t5 ^ d;
         }
 
-        if (cic == 6103) {
+        if (cic == N64Cic.CIC_NUS_6103) {
             CRC1 = (t6 ^ t4) + t3;
             CRC2 = (t5 ^ t2) + t1;
-        } else if (cic == 6106) {
+        } else if (cic == N64Cic.CIC_NUS_6106) {
             CRC1 = (t6 * t4) + t3;
             CRC2 = (t5 * t2) + t1;
         } else {
@@ -102,7 +103,7 @@ public class N64CheckSum {
 
     }
 
-    public static boolean Validate(N64Rom rom, int cic) {
+    public static boolean Validate(N64Rom rom, N64Cic cic) {
         try {
             N64CheckSum c = new N64CheckSum(rom.mRawRom, cic);
             return c.CRC1 == rom.getCRC1() && c.CRC2 == rom.getCRC2();

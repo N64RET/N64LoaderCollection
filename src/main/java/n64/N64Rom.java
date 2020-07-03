@@ -10,7 +10,7 @@ import org.python.jline.internal.Log;
 public class N64Rom {
 
     public byte[] mRawRom;
-    public int mCic;
+    public N64Cic mCic;
 
     public int getClockRate() {
         return ByteBuffer.wrap(mRawRom).getInt(0x4) & 0xFFFFFFF0;
@@ -72,11 +72,14 @@ public class N64Rom {
     public long getFixedEntrypoint()
     {
         long entrypoint = (getEntryPoint() & 0xFFFFFFFFl);
-        if (mCic == 6103)
+        if (mCic == N64Cic.CIC_NUS_6103)
             entrypoint -= 0x100000;
 
-        if (mCic == 6105)
+        if (mCic == N64Cic.CIC_NUS_6105)
             entrypoint -= 0x200000;
+        
+        if (mCic == N64Cic.LylatWars)
+            entrypoint = 0x80000480;
         
         return entrypoint;
     }
@@ -102,28 +105,6 @@ public class N64Rom {
         }
     }
 
-    private void findCic() {
-        String md5 = getBootStrapMd5();
-        if (md5.equals("900B4A5B68EDB71F4C7ED52ACD814FC5")) {
-            mCic = 6101;
-            return;
-        } else if (md5.equals("E24DD796B2FA16511521139D28C8356B")) {
-            mCic = 6102;
-            return;
-        } else if (md5.equals("319038097346E12C26C3C21B56F86F23")) {
-            mCic = 6103;
-            return;
-        } else if (md5.equals("FF22A296E55D34AB0A077DC2BA5F5796")) {
-            mCic = 6105;
-            return;
-        } else if (md5.equals("6460387749AC0BD925AA5430BC7864FE")) {
-            mCic = 6106;
-            return;
-        }
-
-        mCic = 0;
-    }
-
     public N64Rom(byte[] data) throws Exception {
         if (data.length < 0x1000 || data.length % 4 != 0)
             throw new Exception("Invalid ROM Size");
@@ -138,10 +119,11 @@ public class N64Rom {
         } else
             mRawRom = data;
 
-        findCic();
-        if (mCic == 0)
+
+        mCic = N64Cic.FromMd5(getBootStrapMd5());
+        if (mCic == N64Cic.Unknown)
             Log.info("Unknown CIC chip");
         else
-            Log.info("Detected CIC-NUS-", mCic);
+            Log.info("Detected ", mCic.mName);
     }
 }

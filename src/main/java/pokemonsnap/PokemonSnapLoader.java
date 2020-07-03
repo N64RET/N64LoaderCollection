@@ -4,7 +4,6 @@ import n64.*;
 import java.nio.ByteBuffer;
 import org.python.jline.internal.Log;
 import ghidra.program.model.mem.MemoryAccessException;
-import ghidra.program.flatapi.FlatProgramAPI;
 
 
 public class PokemonSnapLoader extends N64Loader {

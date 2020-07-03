@@ -6,8 +6,6 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.*;
 
-import org.python.jline.internal.Log;
-
 import ghidra.app.util.Option;
 import ghidra.app.util.OptionUtils;
 import ghidra.app.util.bin.ByteProvider;
@@ -30,7 +28,7 @@ public class N64Loader extends AbstractLibrarySupportLoader {
 
     protected static final String PIF_ROM_PATH_NAME = "PIF ROM path";
     protected static final String LIBULTRA_OS_SYMS_NAME = "Add Libultra OS Symbols";
-    
+
     protected FlatProgramAPI mApi;
     protected N64Rom mRom;
 
@@ -43,7 +41,6 @@ public class N64Loader extends AbstractLibrarySupportLoader {
     public Collection<LoadSpec> findSupportedLoadSpecs(ByteProvider provider) throws IOException {
         List<LoadSpec> loadSpecs = new ArrayList<>();
 
-        Log.info("hello? N64LoaderBase");
         try {
             N64Rom rom = new N64Rom(provider.getInputStream(0).readAllBytes());
             loadSpecs.add(new LoadSpec(this, 0, new LanguageCompilerSpecPair("MIPS:BE:64:64-32addr", "o32"), true));
@@ -53,7 +50,6 @@ public class N64Loader extends AbstractLibrarySupportLoader {
 
         return loadSpecs;
     }
-    
 
     @Override
     protected void load(ByteProvider provider, LoadSpec loadSpec, List<Option> options, Program program,
@@ -73,13 +69,12 @@ public class N64Loader extends AbstractLibrarySupportLoader {
 
         // create the n64 memory map / add hardware registers
         try {
-            CreateN64Memory(mRom, OptionUtils.getOption(PIF_ROM_PATH_NAME, options, ""));
+            createN64Memory(mRom, OptionUtils.getOption(PIF_ROM_PATH_NAME, options, ""));
         } catch (Exception e) {
             e.printStackTrace();
             throw new CancelledException(e.getMessage());
         }
-        
-        
+
         loadGame();
 
         if (OptionUtils.getBooleanOptionValue(LIBULTRA_OS_SYMS_NAME, options, true))
@@ -92,11 +87,10 @@ public class N64Loader extends AbstractLibrarySupportLoader {
         }
 
     }
-    
-    protected void loadGame()
-    {
+
+    protected void loadGame() {
         long entrypoint = mRom.getFixedEntrypoint();
-        
+
         ByteBuffer buff = ByteBuffer.wrap(mRom.mRawRom);
         buff.position(0x1000);
         byte[] code = new byte[mRom.mRawRom.length - 0x1000];
@@ -104,9 +98,8 @@ public class N64Loader extends AbstractLibrarySupportLoader {
         createSegment("boot", entrypoint, code, new MemPerm("RWX"), false);
         createEmptySegment("boot.bss", entrypoint + code.length, 0x87FFFFFFl, new MemPerm("RW-"), false);
     }
-    
-    private void addLibultraOSSymbols()
-    {
+
+    private void addLibultraOSSymbols() {
         try {
             mApi.createLabel(mApi.toAddr(0x80000300), "osTvType", true, SourceType.ANALYSIS);
             mApi.createLabel(mApi.toAddr(0x80000308), "osRomBase", true, SourceType.ANALYSIS);
@@ -117,11 +110,12 @@ public class N64Loader extends AbstractLibrarySupportLoader {
             e.printStackTrace();
         }
     }
-    
-    private void CreateN64Memory(N64Rom rom, String pifRomPath) throws Exception {
+
+    private void createN64Memory(N64Rom rom, String pifRomPath) throws Exception {
         createEmptySegment(".ivt", 0x80000000, 0x800003FF, new MemPerm("RWX"), false);
         createEmptySegment(".rdreg", 0xA3F00000, 0xA3F00027, new MemPerm("RW-"), false);
-        //CreateEmptySegment(".sp.dmem", 0xA4000000, 0xA4000FFF, new MemPerm("RW-"), false);
+        // CreateEmptySegment(".sp.dmem", 0xA4000000, 0xA4000FFF, new MemPerm("RW-"),
+        // false);
 
         mApi.addEntryPoint(mApi.toAddr(0xA4000040));
         createSegment(".sp.dmem", 0xA4000040, rom.getBootStrap(), new MemPerm("RWX"), false);
@@ -139,13 +133,10 @@ public class N64Loader extends AbstractLibrarySupportLoader {
         createEmptySegment(".cartdom1addr1", 0xA6000000, 0xA7FFFFFF, new MemPerm("RW-"), false);
         createEmptySegment(".cartdom2addr2", 0xA8000000, 0xAFFFFFFF, new MemPerm("RW-"), false);
         createSegment(".cartdom1addr2", 0xB0000000, rom.mRawRom, new MemPerm("RW-"), false);
-        
-        if (pifRomPath.isEmpty())
-        {
+
+        if (pifRomPath == null || pifRomPath.isEmpty()) {
             createEmptySegment(".pifrom", 0xBFC00000, 0xBFC007BF, new MemPerm("RW-"), false);
-        }
-        else
-        {
+        } else {
             File f = new File(pifRomPath);
             byte[] data = Files.readAllBytes(f.toPath());
             byte[] pifRom = new byte[0x7C0];
@@ -281,15 +272,15 @@ public class N64Loader extends AbstractLibrarySupportLoader {
                 ((rom.getClockRate() == 0) ? "Default" : String.format("%dHz", rom.getClockRate())));
         props.setString("N64 EntryPoint", String.format("%08X", rom.getEntryPoint()));
         props.setString("N64 Release Address", String.format("%08X", rom.getReleaseAddress()));
-        props.setString("N64 CRC1",
-                String.format("%08X", rom.getCRC1()) + ((mRom.mCic == 0) ? "" : (sum.getCRC1() == rom.getCRC1() ? " (VALID)" : " (INVALID)")));
-        props.setString("N64 CRC2",
-                String.format("%08X", rom.getCRC2()) + ((mRom.mCic == 0) ? "" : (sum.getCRC2() == rom.getCRC2() ? " (VALID)" : " (INVALID)")));
+        props.setString("N64 CRC1", String.format("%08X", rom.getCRC1())
+                + ((mRom.mCic == N64Cic.Unknown) ? "" : (sum.getCRC1() == rom.getCRC1() ? " (VALID)" : " (INVALID)")));
+        props.setString("N64 CRC2", String.format("%08X", rom.getCRC2())
+                + ((mRom.mCic == N64Cic.Unknown) ? "" : (sum.getCRC2() == rom.getCRC2() ? " (VALID)" : " (INVALID)")));
         props.setString("N64 Name", rom.getName());
         props.setString("N64 Game Code", rom.getGameCode());
         props.setString("N64 Mask ROM Version", String.format("%02X", rom.getVersion()));
         props.setString("N64 Libultra Version", String.format("OS2.0%c", rom.getLibultraVersion()));
-        props.setString("N64 CIC chip", String.format("CIC-NUS-%d", rom.mCic));
+        props.setString("N64 CIC chip", rom.mCic.mName);
     }
 
     @Override
@@ -302,14 +293,11 @@ public class N64Loader extends AbstractLibrarySupportLoader {
     }
 
     @Override
-    public String validateOptions(ByteProvider provider, LoadSpec loadSpec, List<Option> options, Program program) { 
-        for (Option option : options)
-        {
-            if (option.getName().equals(PIF_ROM_PATH_NAME))
-            {
-                String str = (String)option.getValue();
-                if (str != null && !str.isEmpty())
-                {
+    public String validateOptions(ByteProvider provider, LoadSpec loadSpec, List<Option> options, Program program) {
+        for (Option option : options) {
+            if (option.getName().equals(PIF_ROM_PATH_NAME)) {
+                String str = (String) option.getValue();
+                if (str != null && !str.isEmpty()) {
                     File f = new File(str);
                     if (!f.exists() || f.isDirectory())
                         return "Could not find PIF rom";
