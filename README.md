@@ -9,3 +9,4 @@ Note that most loaders are not finished yet and still need some research to be d
 - [Gex64Loader](src/main/java/gex64)
 - [StarFox64Loader](src/main/java/starfox64)
 - [Zelda64Loader](src/main/java/zelda64)
+- [PokemonStadiumLoader](src/main/java/pokemonstadium)

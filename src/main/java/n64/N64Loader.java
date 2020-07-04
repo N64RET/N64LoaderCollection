@@ -15,30 +15,35 @@ import ghidra.app.util.opinion.AbstractLibrarySupportLoader;
 import ghidra.app.util.opinion.LoadSpec;
 import ghidra.framework.model.DomainFolder;
 import ghidra.framework.model.DomainObject;
+import ghidra.program.model.listing.Instruction;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.mem.MemoryBlock;
+import ghidra.program.model.scalar.Scalar;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
 import ghidra.program.flatapi.FlatProgramAPI;
+import ghidra.program.model.address.Address;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.lang.LanguageCompilerSpecPair;
+import ghidra.program.model.lang.Register;
 
 public class N64Loader extends AbstractLibrarySupportLoader {
 
     protected static final String PIF_ROM_PATH_NAME = "PIF ROM path";
     protected static final String LIBULTRA_OS_SYMS_NAME = "Add Libultra OS Symbols";
+    protected static final String LOAD_BOOT_SEGMENT_NAME = "Find and load the boot segment only";
 
     protected FlatProgramAPI mApi;
     protected N64Rom mRom;
+    private boolean mFindBootSegment;
 
     @Override
     public String getName() {
         return "N64 Loader";
     }
-    
-    public final LoadSpec getLoadSpec()
-    {
+
+    public final LoadSpec getLoadSpec() {
         return new LoadSpec(this, 0, new LanguageCompilerSpecPair("MIPS:BE:64:64-32addr", "o32"), true);
     }
 
@@ -55,8 +60,6 @@ public class N64Loader extends AbstractLibrarySupportLoader {
 
         return loadSpecs;
     }
-    
-    
 
     @Override
     protected void load(ByteProvider provider, LoadSpec loadSpec, List<Option> options, Program program,
@@ -81,6 +84,8 @@ public class N64Loader extends AbstractLibrarySupportLoader {
             throw new CancelledException(e.getMessage());
         }
 
+        mFindBootSegment = OptionUtils.getBooleanOptionValue(LOAD_BOOT_SEGMENT_NAME, options, false);
+
         loadGame();
         addHeaderInfo();
 
@@ -94,16 +99,130 @@ public class N64Loader extends AbstractLibrarySupportLoader {
         }
 
     }
-
-    protected void loadGame()  throws CancelledException {
+    
+    private boolean FindBoot()
+    {
         long entrypoint = mRom.getFixedEntrypoint();
-
+        
         ByteBuffer buff = ByteBuffer.wrap(mRom.mRawRom);
         buff.position(0x1000);
-        byte[] code = new byte[mRom.mRawRom.length - 0x1000];
-        buff.get(code);
-        createSegment("boot", entrypoint, code, new MemPerm("RWX"), false);
-        createEmptySegment("boot.bss", entrypoint + code.length, 0x87FFFFFFl, new MemPerm("RW-"), false);
+        MemoryBlock block = null;
+        
+        /* The entrypoint code which clears bss is usually the same and looks like this:
+         * 
+         * u32* bssStart = BSS_START;
+         * u32 bssSize = BSS_SIZE;
+         * 
+         * while (bssSize > 0)
+         * {
+         *     *bssStart = 0;
+         *     *(bssStart+1) = 0;
+         *     bssStart += 2;
+         *     bssSize -= 8;
+         * }
+         * 
+         * sp = SP_BASE;
+         * game_entrypoint();
+         */
+        try {
+
+            // 0x40 is probably enough
+            byte[] entry = new byte[0x60];
+            buff.get(entry);
+
+            block = mApi.createMemoryBlock("temp", mApi.toAddr(entrypoint), entry, false);
+            block.setPermissions(true, false, true);
+
+            long bssStart = -1;
+            long bssSize = -1;
+
+
+            SimpleEmu emu = new SimpleEmu();
+            Address addr = mApi.toAddr(entrypoint);
+            mApi.disassemble(addr);
+            while (addr.compareTo(mApi.toAddr(entrypoint + entry.length)) < 0) {
+                Instruction ins = mApi.getInstructionAt(addr);
+
+                switch (ins.getMnemonicString().replace("_", "")) {
+                // check for a sw zero, 0x0(reg containing bssStart)
+                case "sw": {
+                    var src = (Register) ins.getOpObjects(0)[0];
+                    var off = (Scalar) ins.getOpObjects(1)[0];
+                    var dst = (Register) ins.getOpObjects(1)[1];
+
+                    if (emu.GetReg(src).isZero && off.getValue() == 0) {
+                        if (!emu.GetReg(dst).isConst || bssStart != -1)
+                            throw new Exception();
+
+                        bssStart = emu.GetReg(dst).value;
+                    }
+                    break;
+                }
+                // the bss size get decreased each iteration
+                case "addi": {
+                    var dst = (Register) ins.getOpObjects(0)[0];
+                    var src = (Register) ins.getOpObjects(1)[0];
+                    var imm = (Scalar) ins.getOpObjects(2)[0];
+
+                    if (imm.getSignedValue() < 0)
+                    {
+                        if (bssSize != -1)
+                            throw new Exception();
+                        
+                        bssSize = emu.GetReg(src).value;
+                    }
+                    break;
+                }
+                }
+
+                emu.Execute(ins);
+                
+                if (bssSize != -1 && bssStart != -1)
+                    break;
+
+                addr = addr.add(4);
+            }
+
+            if (bssStart == -1 || bssSize == -1)
+                throw new Exception();
+
+            mApi.removeMemoryBlock(block);
+            
+            byte[] code = new byte[(int)(bssStart - entrypoint)];
+            buff.position(0x1000);
+            buff.get(code);
+            
+            createSegment("boot", entrypoint, code, new MemPerm("RWX"), false);
+            createEmptySegment("boot.bss", bssStart, bssStart+bssSize-1, new MemPerm("RW-"), false);
+            return true;
+
+        } catch (Exception e) {
+
+            try
+            {
+                if (block != null)
+                mApi.removeMemoryBlock(block);
+            }
+            catch (Exception e2) {}
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    protected void loadGame() throws CancelledException {
+
+        long entrypoint = mRom.getFixedEntrypoint();
+
+
+        if (!mFindBootSegment || !FindBoot()) {
+
+            ByteBuffer buff = ByteBuffer.wrap(mRom.mRawRom);
+            buff.position(0x1000);
+            byte[] code = new byte[mRom.mRawRom.length - 0x1000];
+            buff.get(code);
+            createSegment("boot", entrypoint, code, new MemPerm("RWX"), false);
+            createEmptySegment("boot.bss", entrypoint + code.length, 0x87FFFFFFl, new MemPerm("RW-"), false);
+        }
     }
 
     private void addLibultraOSSymbols() {
@@ -296,6 +415,8 @@ public class N64Loader extends AbstractLibrarySupportLoader {
         List<Option> list = super.getDefaultOptions(provider, loadSpec, domainObject, isLoadIntoProgram);
         list.add(new Option(PIF_ROM_PATH_NAME, String.class));
         list.add(new Option(LIBULTRA_OS_SYMS_NAME, true));
+        if (this.getName().equals("N64 Loader"))
+            list.add(new Option(LOAD_BOOT_SEGMENT_NAME, false));
         return list;
     }
 
