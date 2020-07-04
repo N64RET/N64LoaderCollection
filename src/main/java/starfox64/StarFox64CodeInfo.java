@@ -23,7 +23,7 @@ public class StarFox64CodeInfo {
     public static final Map<StarFox64Version, StarFox64CodeInfo> TABLE = new HashMap<StarFox64Version, StarFox64CodeInfo>() {
         {
             put(StarFox64Version.Europe, new StarFox64CodeInfo(0x800c3e70, 0x800c54d0, 0x800df9f0, 0x8017ABE0));
-            put(StarFox64Version.USA, new StarFox64CodeInfo(0x800c3660, 0x800c48d0, 0x800dd880, 0x80178A70));
+            put(StarFox64Version.U11, new StarFox64CodeInfo(0x800c3660, 0x800c48d0, 0x800dd880, 0x80178A70));
             put(StarFox64Version.Japan, new StarFox64CodeInfo(0x800c07b0, 0x800c1a20, 0x800e87c0, 0x8017E210));
         }
     };

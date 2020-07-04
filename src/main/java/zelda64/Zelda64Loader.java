@@ -14,13 +14,10 @@ import ghidra.program.model.listing.Program;
 import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.util.Msg;
 import ghidra.util.exception.CancelledException;
-import ghidra.program.flatapi.FlatProgramAPI;
 import ghidra.program.model.data.ArrayDataType;
 import ghidra.program.model.data.StringDataType;
-import ghidra.program.model.lang.LanguageCompilerSpecPair;
 
 public class Zelda64Loader extends N64Loader {
-    FlatProgramAPI mApi;
     Zelda64Game mGame;
 
     @Override
@@ -35,7 +32,7 @@ public class Zelda64Loader extends N64Loader {
         try {
             var game = new Zelda64Game(provider.getInputStream(0).readAllBytes(), false, null);
             if (game.IsKnown())
-                loadSpecs.add(new LoadSpec(this, 0, new LanguageCompilerSpecPair("MIPS:BE:64:64-32addr", "o32"), true));
+                loadSpecs.add(getLoadSpec());
         } catch (Exception e) {
 
         }

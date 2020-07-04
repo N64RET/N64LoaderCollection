@@ -75,7 +75,7 @@ public class N64Rom {
         if (mCic == N64Cic.CIC_NUS_6103)
             entrypoint -= 0x100000;
 
-        if (mCic == N64Cic.CIC_NUS_6105)
+        if (mCic == N64Cic.CIC_NUS_6106)
             entrypoint -= 0x200000;
         
         if (mCic == N64Cic.LylatWars)

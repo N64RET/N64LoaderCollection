@@ -1,7 +1,7 @@
 package starfox64;
 
 public enum StarFox64Version {
-    Invalid(), USA(), Europe(), Japan(),
+    Invalid(), U11(), Europe(), Japan(),
 
     Gex64Version() {
     }

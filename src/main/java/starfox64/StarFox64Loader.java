@@ -1,7 +1,15 @@
 package starfox64;
 
 import n64.*;
+
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+import ghidra.app.util.bin.ByteProvider;
+import ghidra.app.util.opinion.LoadSpec;
 
 public class StarFox64Loader extends N64Loader {
 
@@ -11,22 +19,41 @@ public class StarFox64Loader extends N64Loader {
     public String getName() {
         return "StarFox 64 Loader";
     }
+        
+    @Override
+    public Collection<LoadSpec> findSupportedLoadSpecs(ByteProvider provider) throws IOException {
+        List<LoadSpec> loadSpecs = new ArrayList<>();
+
+        try {
+            mRom = new N64Rom(provider.getInputStream(0).readAllBytes());
+            identifyVersion();
+            if (mVersion != StarFox64Version.Invalid)
+                loadSpecs.add(getLoadSpec());
+        } catch (Exception e) {
+
+        }
+
+        return loadSpecs;
+    }
 
     private void identifyVersion() {
-        if (mRom.getGameCode().equals("NFXP")) {
-            mVersion = StarFox64Version.Europe;
-        } else if (mRom.getGameCode().equals("NFXJ")) {
-            mVersion = StarFox64Version.Japan;
-        } else if (mRom.getGameCode().equals("NFXE")) {
-            mVersion = StarFox64Version.USA;
-        } else {
-            mVersion = StarFox64Version.Invalid;
+        mVersion = StarFox64Version.Invalid;
+        
+        if (mRom.getName().equals("STARFOX64"))
+        {
+            if (mRom.getGameCode().equals("NFXP") && mRom.getVersion() == 0) {
+                mVersion = StarFox64Version.Europe;
+            } else if (mRom.getGameCode().equals("NFXJ") && mRom.getVersion() == 0) {
+                mVersion = StarFox64Version.Japan;
+            } else if (mRom.getGameCode().equals("NFXE") && mRom.getVersion() == 1) {
+                mVersion = StarFox64Version.U11;
+            }
         }
     }
 
+
     @Override
     protected void loadGame() {
-
         identifyVersion();
 
         long entrypoint = mRom.getFixedEntrypoint();

@@ -1,26 +1,66 @@
 package papermario;
 
 import n64.*;
+
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
 import org.python.jline.internal.Log;
+
+import ghidra.app.util.bin.ByteProvider;
+import ghidra.app.util.opinion.LoadSpec;
 import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.util.Msg;
 
 public class PaperMarioLoader extends N64Loader {
+    PaperMarioVersion mVersion;
+    
     @Override
     public String getName() {
         return "PaperMario 64 Loader";
     }
     
-    @Override
-    protected void loadGame()
+
+    void identifyVersion()
     {
-        var codeInfo = PaperMarioCodeInfo.TABLE.get(PaperMarioVersion.USA);
-        long entrypoint = mRom.getFixedEntrypoint();
+        mVersion = PaperMarioVersion.Invalid;
+        if (mRom.getName().equals("PAPER MARIO"))
+        {
+            if (mRom.getGameCode().equals("NMQE") && mRom.getVersion() == 0)
+                mVersion = PaperMarioVersion.USA;
+        }
+    }
+    
+    @Override
+    public Collection<LoadSpec> findSupportedLoadSpecs(ByteProvider provider) throws IOException {
+        List<LoadSpec> loadSpecs = new ArrayList<>();
+
+        try {
+            mRom = new N64Rom(provider.getInputStream(0).readAllBytes());
+            identifyVersion();
+            if (mVersion != PaperMarioVersion.Invalid)
+                loadSpecs.add(getLoadSpec());
+        } catch (Exception e) {
+
+        }
+
+        return loadSpecs;
+    }
+
+    @Override
+    protected void loadGame() {
+
+        identifyVersion();
         
+        var codeInfo = PaperMarioCodeInfo.TABLE.get(mVersion);
+        long entrypoint = mRom.getFixedEntrypoint();
+
         ByteBuffer buff = ByteBuffer.wrap(mRom.mRawRom);
         buff.position(0x1000);
-        
+
         byte[] section = new byte[(int) (codeInfo.mBootData - entrypoint)];
         buff.get(section);
         createSegment("boot.text", entrypoint, section, new MemPerm("R-X"), false);

@@ -36,6 +36,11 @@ public class N64Loader extends AbstractLibrarySupportLoader {
     public String getName() {
         return "N64 Loader";
     }
+    
+    public final LoadSpec getLoadSpec()
+    {
+        return new LoadSpec(this, 0, new LanguageCompilerSpecPair("MIPS:BE:64:64-32addr", "o32"), true);
+    }
 
     @Override
     public Collection<LoadSpec> findSupportedLoadSpecs(ByteProvider provider) throws IOException {
@@ -43,13 +48,15 @@ public class N64Loader extends AbstractLibrarySupportLoader {
 
         try {
             N64Rom rom = new N64Rom(provider.getInputStream(0).readAllBytes());
-            loadSpecs.add(new LoadSpec(this, 0, new LanguageCompilerSpecPair("MIPS:BE:64:64-32addr", "o32"), true));
+            loadSpecs.add(getLoadSpec());
         } catch (Exception e) {
 
         }
 
         return loadSpecs;
     }
+    
+    
 
     @Override
     protected void load(ByteProvider provider, LoadSpec loadSpec, List<Option> options, Program program,
@@ -65,7 +72,6 @@ public class N64Loader extends AbstractLibrarySupportLoader {
         }
 
         mApi = new FlatProgramAPI(program, monitor);
-        addHeaderInfo();
 
         // create the n64 memory map / add hardware registers
         try {
@@ -76,6 +82,7 @@ public class N64Loader extends AbstractLibrarySupportLoader {
         }
 
         loadGame();
+        addHeaderInfo();
 
         if (OptionUtils.getBooleanOptionValue(LIBULTRA_OS_SYMS_NAME, options, true))
             addLibultraOSSymbols();
