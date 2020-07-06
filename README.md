@@ -10,3 +10,4 @@ Note that most loaders are not finished yet and still need some research to be d
 - [StarFox64Loader](src/main/java/starfox64)
 - [Zelda64Loader](src/main/java/zelda64)
 - [PokemonStadiumLoader](src/main/java/pokemonstadium)
+- [Superman64Loader](src/main/java/superman64)
