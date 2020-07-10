@@ -13,9 +13,9 @@ public class Zelda64CodeInfo {
     public long mActorOvlTable;
     public long mGameStateOvlTable;
     public long mEffectSS2OvlTable;
-    public long mKaleidoMgrOvlTable;
-    public long mMapMarkDataOvlInfo; // specific to oot
-    public long mFbDemoOvlTable; // specific to mm
+    public long mKaleidoMgrOvlTable; // "SubmenuArea" in AC
+    public long mMapMarkDataOvlInfo; // specific to OOT
+    public long mFbDemoOvlTable; // specific to MM
 
     public Zelda64CodeInfo(long bootData, long bootRodata, long codeText, long codeData, long codeRodata, long codeVrom,
             long actorOvlTable, long gameStateOvlTable, long effectSS2OvlTable, long kaleidoMgrOvlTable,
@@ -81,6 +81,9 @@ public class Zelda64CodeInfo {
                     0xb3c000, 0x801aefd0, 0x801BD910, 0x801ae4a0, 0x801d0b70, -1, 0x801d0bb0));
             put(Zelda64Version.MmUSADemo, new Zelda64CodeInfo(0x80097080, 0x80098700, 0x800a6120, 0x801ad6c0,
                     0x801db600, 0xb3d000, 0x801ae830, 0x801BD170, 0x801add00, 0x801d0380, -1, 0x801d03c0));
+            // Animal Crossing
+            put(Zelda64Version.Ac, new Zelda64CodeInfo(0x8003BBC0, 0x8003D190, 0x80051a80, 0x800ff370,
+                    0x80113310, 0x675720, 0x80100c90, 0x80106e20, -1, 0x8010dcec, -1, -1));
         }
     };
 }

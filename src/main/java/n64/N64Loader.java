@@ -34,9 +34,11 @@ public class N64Loader extends AbstractLibrarySupportLoader {
     protected static final String LIBULTRA_OS_SYMS_NAME = "Add Libultra OS Symbols";
     protected static final String LOAD_BOOT_SEGMENT_NAME = "Find and load the boot segment only";
 
-    protected FlatProgramAPI mApi;
-    protected N64Rom mRom;
-    private boolean mFindBootSegment;
+    public FlatProgramAPI mApi;
+    public N64Rom mRom;
+    public long mBootBssStart;
+    public long mBootBssSize;
+    private boolean mBootOnly;
 
     @Override
     public String getName() {
@@ -84,8 +86,9 @@ public class N64Loader extends AbstractLibrarySupportLoader {
             throw new CancelledException(e.getMessage());
         }
 
-        mFindBootSegment = OptionUtils.getBooleanOptionValue(LOAD_BOOT_SEGMENT_NAME, options, false);
+        mBootOnly = OptionUtils.getBooleanOptionValue(LOAD_BOOT_SEGMENT_NAME, options, false);
 
+        findBoot();
         loadGame();
         addHeaderInfo();
 
@@ -100,7 +103,7 @@ public class N64Loader extends AbstractLibrarySupportLoader {
 
     }
     
-    private boolean FindBoot()
+    private void findBoot()
     {
         long entrypoint = mRom.getFixedEntrypoint();
         
@@ -133,8 +136,8 @@ public class N64Loader extends AbstractLibrarySupportLoader {
             block = mApi.createMemoryBlock("temp", mApi.toAddr(entrypoint), entry, false);
             block.setPermissions(true, false, true);
 
-            long bssStart = -1;
-            long bssSize = -1;
+            mBootBssStart = -1;
+            mBootBssSize = -1;
 
 
             SimpleEmu emu = new SimpleEmu();
@@ -151,10 +154,10 @@ public class N64Loader extends AbstractLibrarySupportLoader {
                     var dst = (Register) ins.getOpObjects(1)[1];
 
                     if (emu.GetReg(src).isZero && off.getValue() == 0) {
-                        if (!emu.GetReg(dst).isConst || bssStart != -1)
+                        if (!emu.GetReg(dst).isConst || mBootBssStart != -1)
                             throw new Exception();
 
-                        bssStart = emu.GetReg(dst).value;
+                        mBootBssStart = emu.GetReg(dst).value;
                     }
                     break;
                 }
@@ -166,10 +169,10 @@ public class N64Loader extends AbstractLibrarySupportLoader {
 
                     if (imm.getSignedValue() < 0)
                     {
-                        if (bssSize != -1)
+                        if (mBootBssSize != -1)
                             throw new Exception();
                         
-                        bssSize = emu.GetReg(src).value;
+                        mBootBssSize = emu.GetReg(src).value;
                     }
                     break;
                 }
@@ -177,24 +180,16 @@ public class N64Loader extends AbstractLibrarySupportLoader {
 
                 emu.Execute(ins);
                 
-                if (bssSize != -1 && bssStart != -1)
+                if (mBootBssStart != -1 && mBootBssSize != -1)
                     break;
 
                 addr = addr.add(4);
             }
 
-            if (bssStart == -1 || bssSize == -1)
+            if (mBootBssStart == -1 || mBootBssSize == -1)
                 throw new Exception();
 
             mApi.removeMemoryBlock(block);
-            
-            byte[] code = new byte[(int)(bssStart - entrypoint)];
-            buff.position(0x1000);
-            buff.get(code);
-            
-            createSegment("boot", entrypoint, code, new MemPerm("RWX"), false);
-            createEmptySegment("boot.bss", bssStart, bssStart+bssSize-1, new MemPerm("RW-"), false);
-            return true;
 
         } catch (Exception e) {
 
@@ -205,7 +200,7 @@ public class N64Loader extends AbstractLibrarySupportLoader {
             }
             catch (Exception e2) {}
             e.printStackTrace();
-            return false;
+            
         }
     }
 
@@ -213,13 +208,21 @@ public class N64Loader extends AbstractLibrarySupportLoader {
 
         long entrypoint = mRom.getFixedEntrypoint();
 
+        ByteBuffer buff = ByteBuffer.wrap(mRom.mRawRom);
+        buff.position(0x1000);
+        if (mBootOnly && mBootBssStart != -1 && mBootBssSize != -1)
+        {
+            byte[] code = new byte[(int)(mBootBssStart - entrypoint)];
+            buff.get(code);
+            
+            createSegment("boot", entrypoint, code, new MemPerm("RWX"), false);
+            createEmptySegment("boot.bss", mBootBssStart, mBootBssStart+mBootBssSize-1, new MemPerm("RW-"), false);
+        }
+        else {
 
-        if (!mFindBootSegment || !FindBoot()) {
-
-            ByteBuffer buff = ByteBuffer.wrap(mRom.mRawRom);
-            buff.position(0x1000);
             byte[] code = new byte[mRom.mRawRom.length - 0x1000];
             buff.get(code);
+            
             createSegment("boot", entrypoint, code, new MemPerm("RWX"), false);
             createEmptySegment("boot.bss", entrypoint + code.length, 0x87FFFFFFl, new MemPerm("RW-"), false);
         }
@@ -406,7 +409,7 @@ public class N64Loader extends AbstractLibrarySupportLoader {
         props.setString("N64 Game Code", mRom.getGameCode());
         props.setString("N64 Mask ROM Version", String.format("%02X", mRom.getVersion()));
         props.setString("N64 Libultra Version", String.format("OS2.0%c", mRom.getLibultraVersion()));
-        props.setString("N64 CIC chip", mRom.mCic.mName);
+        props.setString("N64 Bootstrap", mRom.mCic.mName);
     }
 
     @Override

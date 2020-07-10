@@ -5,46 +5,102 @@ import java.util.ArrayList;
 import java.util.List;
 import n64.*;
 
-import ghidra.app.util.bin.BinaryReader;
-import ghidra.app.util.bin.ByteArrayProvider;
 import ghidra.util.task.TaskMonitor;
 
 public class Zelda64Game {
     public N64Rom mRom;
-    public String mBuildName;
     public Zelda64Version mVersion;
     public int mDmaDataOff;
     public List<Zelda64File> mFiles;
 
-    public Zelda64Game(N64Rom rom, boolean loadFs, TaskMonitor monitor) throws Zelda64Exception {
-        this.mRom = rom;
-        Load();
+    
+    public Zelda64Game(N64Loader loader, boolean loadFs)
+    {
+        this.mRom = loader.mRom;
+        identifyVersion(loader);
         mFiles = null;
-        if (loadFs)
-            mFiles = GetFs(monitor);
+        if (loadFs && isKnown())
+            mFiles = getFs(loader.mApi.getMonitor());
+    }
+    
+    public Zelda64Game(N64Rom rom, boolean loadFs, TaskMonitor monitor) {
+        this.mRom = rom;
+        identifyVersion(null);
+        mFiles = null;
+        if (loadFs && isKnown())
+            mFiles = getFs(monitor);
     }
 
     public Zelda64Game(byte[] data, boolean loadFs, TaskMonitor monitor) throws Exception {
         this(new N64Rom(data), loadFs, monitor);
     }
 
-    private void Load() throws Zelda64Exception {
-        int off = FindBuildNameOffset();
-        if (off == -1)
-            throw new Zelda64Exception("Could Not Find Build Name");
-
-        mDmaDataOff = off + 0x30;
-        try {
-            BinaryReader br = new BinaryReader(new ByteArrayProvider(mRom.mRawRom), false);
-            String build = br.readAsciiString(off, 0x30);
-            mBuildName = build.replaceAll("\0+$", "").replace('\0', ' ');
-            mVersion = Zelda64Version.FromString(mBuildName);
-        } catch (Exception ex) {
-            throw new Zelda64Exception("Could Not Read Build Name");
+    private void identifyVersion(N64Loader loader) {
+        
+        int endSearch = loader != null
+                ? (int)(loader.mBootBssStart - mRom.getFixedEntrypoint() + 0x1000)
+                :0x100000;
+                
+        switch (mRom.getName())
+        {
+        case "THE LEGEND OF ZELDA":
+        case "ZELDA MAJORA'S MASK":
+        case "THE MASK OF MUJURA":
+        case "MAJORA'S MASK":
+        case "DOUBUTSUNOMORI":
+            break;
+        default:
+            mVersion = Zelda64Version.Invalid;
+            return;
         }
+                
+        // avoid duplicates for better performances
+        List<String> teams = new ArrayList<String>();
+        List<String> dates = new ArrayList<String>();
+        for (var version : Zelda64Version.values())
+        {
+            if (version == Zelda64Version.Invalid)
+                continue;
+            if (!teams.contains(version.mTeam))
+                teams.add(version.mTeam);
+            if (!dates.contains(version.mDate))
+                dates.add(version.mDate);
+        }
+        
+        for (int i = 0x1000; i < endSearch; i++) {
+            for (var team : teams)
+            {
+                // split build team and build date
+
+                int off = i;
+                if (compareString(off, team))
+                {
+                    // build date match
+                    off = (off+team.length()+1) + 3 & ~3;
+                    
+                    for (var date : dates)
+                    {
+                        if (compareString(off, date))
+                        {
+                            // make option
+                            off = (off+date.length()+1) + 3 & ~3;
+                            
+                            // segment padding
+                            off = off + 1 + 0xF & ~0xF;
+                            mDmaDataOff = off;
+                            mVersion = Zelda64Version.FromString(team, date);
+                            return;
+                        }
+                    }
+                    break;
+                }
+                
+            }
+        }
+        mVersion = Zelda64Version.Invalid;
     }
 
-    public boolean IsOot() {
+    public boolean isOot() {
         switch (mVersion) {
         case OotEurope10:
         case OotEurope11:
@@ -67,7 +123,7 @@ public class Zelda64Game {
         }
     }
 
-    public boolean IsMm() {
+    public boolean isMm() {
         switch (mVersion) {
         case MmEurope10:
         case MmEurope11:
@@ -82,13 +138,18 @@ public class Zelda64Game {
             return false;
         }
     }
-
-    public boolean IsKnown() {
-        return IsOot() || IsMm();
+    
+    public boolean isAc()
+    {
+        return (mVersion == Zelda64Version.Ac);
     }
 
-    public String GetVersionLongName() {
-        String gameName = IsOot() ? "Ocarina Of Time" : IsMm() ? "Majora's Mask" : "???";
+    public boolean isKnown() {
+        return isOot() || isMm() || isAc();
+    }
+
+    public String getVersionLongName() {
+        String gameName = isOot() ? "Ocarina Of Time" : isMm() ? "Majora's Mask" : "???";
 
         switch (mVersion) {
         case Invalid:
@@ -137,30 +198,31 @@ public class Zelda64Game {
             return gameName + " USA GameCube";
         case OotUSAGCMq:
             return gameName + " USA Master Quest";
+        case Ac:
+            return "Doubutsu no Mori";
         default:
             return "Invalid or unknown version";
         }
 
     }
+    
+    private boolean compareString(int romOff, String str)
+    {
+        /*
+        byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
+        return Utils.memcmp(mRom.mRawRom, romOff, bytes, 0, bytes.length);
+        */
 
-    private int FindBuildNameOffset() {
-        String pattern = "zelda@srd";
-        for (int i = 0x1000; i < mRom.mRawRom.length - pattern.length(); i++) {
-            boolean valid = true;
-            for (int j = 0; j < pattern.length(); j++) {
-                if (mRom.mRawRom[i + j] != (byte) pattern.charAt(j)) {
-                    valid = false;
-                    break;
-                }
+        for (int i = 0; i < str.length(); i++) {
+            if (mRom.mRawRom[romOff + i] != (byte)str.charAt(i)) {
+                return false;
             }
-            if (valid)
-                return i;
         }
-
-        return -1;
+        
+        return true;
     }
 
-    public List<Zelda64File> GetFs(TaskMonitor monitor) {
+    public List<Zelda64File> getFs(TaskMonitor monitor) {
         List<Zelda64File> ret = new ArrayList<Zelda64File>();
         int filecount = 3; // dmadata file
 
@@ -176,9 +238,9 @@ public class Zelda64Game {
             }
 
             DmaDataEntry entry = new DmaDataEntry(buff);
-            Zelda64File file = entry.ToFile(this);
+            Zelda64File file = entry.toFile(this);
             ret.add(file);
-            if (entry.Valid() && entry.Exist()) {
+            if (entry.valid() && entry.exist()) {
                 if (i == 2) // dmadata
                 {
                     filecount = file.mData.length / 0x10;
@@ -191,7 +253,7 @@ public class Zelda64Game {
         return ret;
     }
 
-    public Zelda64File GetFile(int vrom) {
+    public Zelda64File getFile(int vrom) {
         if (mFiles == null)
             return null;
         for (Zelda64File file : mFiles) {
@@ -207,15 +269,15 @@ public class Zelda64Game {
         private int RomStart;
         private int RomEnd;
 
-        public boolean Valid() {
+        public boolean valid() {
             return (VRomStart != 0 || VRomEnd != 0 || RomStart != 0 || RomEnd != 0);
         }
 
-        public boolean Exist() {
+        public boolean exist() {
             return RomStart != -1 && RomEnd != -1;
         }
 
-        public boolean Compressed() {
+        public boolean compressed() {
             return RomEnd != 0;
         }
 
@@ -226,30 +288,30 @@ public class Zelda64Game {
             RomEnd = buff.getInt();
         }
 
-        public int GetSize() {
-            if (!Valid() || !Exist())
+        public int getSize() {
+            if (!valid() || !exist())
                 return 0;
-            return Compressed() ? RomEnd - RomStart : VRomEnd - VRomStart;
+            return compressed() ? RomEnd - RomStart : VRomEnd - VRomStart;
         }
 
-        public Zelda64File ToFile(Zelda64Game mm64) {
-            if (!Valid())
+        public Zelda64File toFile(Zelda64Game mm64) {
+            if (!valid())
                 return new Zelda64File(null, -1, -1, false, 0);
 
-            if (!Exist())
+            if (!exist())
                 return Zelda64File.DeletedFile(VRomStart, RomStart, VRomEnd - VRomStart);
 
-            int len = GetSize();
+            int len = getSize();
 
             ByteBuffer buff = ByteBuffer.wrap(mm64.mRom.mRawRom);
             buff.position(RomStart);
             byte[] data = new byte[len];
             buff.get(data);
 
-            if (Compressed())
+            if (compressed())
                 data = Yaz0.DecodeBuffer(data);
 
-            return new Zelda64File(data, VRomStart, RomStart, Compressed(), len);
+            return new Zelda64File(data, VRomStart, RomStart, compressed(), len);
         }
     }
 }

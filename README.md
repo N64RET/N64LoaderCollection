@@ -5,9 +5,9 @@ Note that most loaders are not finished yet and still need some research to be d
 ## Current Loaders:
 - [N64Loader](src/main/java/n64)
 - [PaperMarioLoader](src/main/java/papermario)
-- [PokemonSnapLoader](src/main/java/pokemonsnap)
+- [PokemonSnapLoader](src/main/java/pokemonsnap) (Loader for Pokemon Snap, Smash 64 and Kirby 64)
 - [Gex64Loader](src/main/java/gex64)
 - [StarFox64Loader](src/main/java/starfox64)
-- [Zelda64Loader](src/main/java/zelda64)
+- [Zelda64Loader](src/main/java/zelda64) (Loader for Ocarina of Time, Majora's Mask and Animal Crossing)
 - [PokemonStadiumLoader](src/main/java/pokemonstadium)
 - [Superman64Loader](src/main/java/superman64)

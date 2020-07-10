@@ -143,8 +143,7 @@ public class Zelda64FileSystem implements GFileSystem {
 
             byte[] data = byteProvider.getInputStream(0).readAllBytes();
             try {
-                new Zelda64Game(data, false, null);
-                return true;
+                return new Zelda64Game(data, false, null).isKnown();
             } catch (Exception e) {
                 return false;
             }

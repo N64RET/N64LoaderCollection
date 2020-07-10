@@ -6,29 +6,43 @@ import ghidra.program.flatapi.FlatProgramAPI;
 
 public class Zelda64Overlay {
     byte[] mRawData;
-    long mRelaInfoOff;
+    byte[] mRelocData; // AC stores the reloc section in a different file
     long mTextSize;
     long mDataSize;
     long mRodataSize;
     long mBssSize;
-    long mRelocSize;
     long[] mEntries;
     boolean mRelocated;
 
-    public Zelda64Overlay(byte[] data) {
+    public Zelda64Overlay(byte[] data, byte[] relocData) {
         mRelocated = false;
         mRawData = data;
-        ByteBuffer buff = ByteBuffer.wrap(mRawData);
-        buff.position(mRawData.length - 4);
-        int structLen = buff.getInt();
-        mRelaInfoOff = (mRawData.length - structLen) & 0xFFFFFFFFl;
-        buff.position((int) mRelaInfoOff);
+        
+        ByteBuffer buff;
+
+        // oot/mm
+        if (relocData == null)
+        {
+            buff = ByteBuffer.wrap(mRawData);
+            buff.position(mRawData.length - 4);
+            int structLen = buff.getInt();
+            int off = (mRawData.length - structLen);
+            buff.position(off);
+            mRelocData = new byte[structLen];
+            buff.get(mRelocData);
+        }
+        // ac
+        else
+        {
+            mRelocData = relocData;
+        }
+        
+        buff = ByteBuffer.wrap(mRelocData);
 
         mTextSize = buff.getInt() & 0xFFFFFFFFl;
         mDataSize = buff.getInt() & 0xFFFFFFFFl;
         mRodataSize = buff.getInt() & 0xFFFFFFFFl;
         mBssSize = buff.getInt() & 0xFFFFFFFFl;
-        mRelocSize = structLen & 0xFFFFFFFFl;// mRawData.length - mRelaInfoOff;
         int count = buff.getInt();
         mEntries = new long[count];
         for (int i = 0; i < count; i++)
@@ -132,11 +146,7 @@ public class Zelda64Overlay {
     }
 
     public byte[] GetRelocData() {
-        byte[] reloc = new byte[(int) mRelocSize];
-        ByteBuffer buff = ByteBuffer.wrap(mRawData);
-        buff.position((int) mRelaInfoOff);
-        buff.get(reloc);
-        return reloc;
+        return mRelocData;
     }
 
 }

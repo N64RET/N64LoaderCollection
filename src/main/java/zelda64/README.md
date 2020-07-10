@@ -1,7 +1,7 @@
 # Zelda 64 Loader
- Ghidra Loader for Zelda 64 (WIP)
+ Ghidra Loader for Nintendo 64 games using the Zelda 64 engine (WIP)
  
- This can load a Majora's Mask or Ocarina Of Time ROM either as a single file or as a file system.
+ This can load ROMs using the Zelda64 engine either as a single file or as a file system.
  
  When a ROM is loaded as a "Single File", the loader will create the nintendo 64's memory layout, load the `code` file and load all the overlay files it can find (see [Loaded overlays](#loaded-overlays) for more details).
  
@@ -15,10 +15,11 @@
 The overlays the loader will seek for are the following:
  - GameState overlays
  - Actor overlays
- - "Effect Soft Sprite" (aka "Effect SS2") overlays
+ - "Effect Soft Sprite" (aka "Effect SS2") overlays (specific to Ocarina of Time and Majora's mask)
  - `kaleido_manager` overlays (`player_actor` and `kaleido_scope`)
- - `map_mark_data` (specific to Ocarina Of Time)
+ - `map_mark_data` (specific to Ocarina of Time)
  - Transition effect (aka "FBDemo") overlays (specific to Majora's Mask)
+ - Some currently unknown overlays specific to Animal Crossing
  
 # Currently supported versions:
 ### Majora's Mask
@@ -58,3 +59,9 @@ The overlays the loader will seek for are the following:
 | Japan GameCube Zelda Collection | zelda@srd022j 03-10-08 21:53:00 | Yes |
 | China iQue | build@toad.routefree.com 03-10-22 16:23:19 | No |
 | Traditional Chinese iQue | tyu@linuxdev3 06-10-13 14:17:43 | No |
+
+### Animal Crossing
+
+| Version | Build ID | Supported |
+|----------|:-------------:|:------:|
+| JP | forest@srd038J.srd.nintendo.co.jp 01-02-14 16:37:16 | Yes |

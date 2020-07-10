@@ -4,7 +4,7 @@ import ghidra.program.flatapi.FlatProgramAPI;
 
 public class Utils {
 
-    static String bytesToHex(byte[] bytes) {
+    public static String bytesToHex(byte[] bytes) {
         final char[] hexArray = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
         char[] hexChars = new char[bytes.length * 2];
         for (int j = 0; j < bytes.length; j++) {
@@ -16,7 +16,7 @@ public class Utils {
     }
     
 
-    static String readStringImpl(FlatProgramAPI api, long addr) {
+    public static String readString(FlatProgramAPI api, long addr) {
 
         String str = "";
         try {
@@ -31,5 +31,17 @@ public class Utils {
             e.printStackTrace();
         }
         return str;
+    }
+    
+
+    public static boolean memcmp(byte[] arr1, int off1, byte[] arr2, int off2, int length)
+    {   
+        for (int i = 0; i < length; i++) {
+            if (arr1[off1 + i] != arr2[off2+i]) {
+                return false;
+            }
+        }
+        
+        return true;
     }
 }

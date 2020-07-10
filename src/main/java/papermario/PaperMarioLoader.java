@@ -161,24 +161,6 @@ public class PaperMarioLoader extends N64Loader {
     }
 
     private String readString(long addr, String prefix, int idx) {
-        return addr == 0 ? (prefix + "_" + idx) : readStringImpl(addr);
-    }
-
-    private String readStringImpl(long addr) {
-
-        String str = "";
-        try {
-            char c = 0;
-            do {
-                c = (char) mApi.getCurrentProgram().getMemory().getByte(mApi.toAddr(addr));
-                if (c != 0)
-                    str += c;
-                addr++;
-            } while (c != 0);
-        } catch (Exception e) {
-            e.printStackTrace();
-            Msg.error(this, e.getMessage());
-        }
-        return str;
+        return addr == 0 ? (prefix + "_" + idx) : Utils.readString(mApi, addr);
     }
 }
