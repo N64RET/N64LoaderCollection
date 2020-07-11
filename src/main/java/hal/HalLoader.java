@@ -1,4 +1,4 @@
-package pokemonsnap;
+package hal;
 
 import n64.*;
 
@@ -15,21 +15,26 @@ import ghidra.app.util.opinion.LoadSpec;
 import ghidra.program.model.mem.MemoryAccessException;
 
 
-public class PokemonSnapLoader extends N64Loader {
-    PokemonSnapVersion mVersion;
+public class HalLoader extends N64Loader {
+    HalVersion mVersion;
     
     @Override
     public String getName() {
-        return "Pokemon Snap Loader";
+        return "HAL Loader";
     }
     
     void identifyVersion()
     {
-        mVersion = PokemonSnapVersion.Invalid;
+        mVersion = HalVersion.Invalid;
         if (mRom.getName().equals("POKEMON SNAP"))
         {
             if (mRom.getGameCode().equals("NPFE") && mRom.getVersion() == 0)
-                mVersion = PokemonSnapVersion.USA;
+                mVersion = HalVersion.SnapUSA;
+        }
+        else if (mRom.getName().equals("SMASH BROTHERS"))
+        {
+            if (mRom.getGameCode().equals("NALE") && mRom.getVersion() == 0)
+                mVersion = HalVersion.SmashUSA;
         }
     }
     
@@ -40,7 +45,7 @@ public class PokemonSnapLoader extends N64Loader {
         try {
             mRom = new N64Rom(provider.getInputStream(0).readAllBytes());
             identifyVersion();
-            if (mVersion != PokemonSnapVersion.Invalid)
+            if (mVersion != HalVersion.Invalid)
                 loadSpecs.add(getLoadSpec());
         } catch (Exception e) {
 
@@ -58,8 +63,7 @@ public class PokemonSnapLoader extends N64Loader {
         ByteBuffer buff = ByteBuffer.wrap(mRom.mRawRom);
         buff.position(0x1000);
 
-
-        var codeInfo = PokemonSnapCodeInfo.TABLE.get(mVersion);
+        var codeInfo = HalCodeInfo.TABLE.get(mVersion);
         byte[] section = new byte[(int) (codeInfo.mBootData - entrypoint)];
         buff.get(section);
         createSegment("boot.text", entrypoint, section, new MemPerm("R-X"), false);
@@ -74,9 +78,26 @@ public class PokemonSnapLoader extends N64Loader {
         createEmptySegment("boot.bss", codeInfo.mBootBssStart, codeInfo.mBootBssEnd - 1, new MemPerm("RW-"), false);
         
         LoadCodeOvl("code", codeInfo.mBootData, false);
+        
         try {
+            // pointer to code.data in the code overlay struct
             long ovlTable = mApi.getCurrentProgram().getMemory().getInt(mApi.toAddr(codeInfo.mBootData+0x14)) & 0xFFFFFFFFl;
-            for (int i = 0; i < 30; i++)
+            
+            int count = 0;
+            switch (mVersion)
+            {
+            case SnapUSA:
+                count = 30;
+                break;
+            case SmashUSA:
+                count = 65;
+                break;
+            default:
+                count = 0;
+                break;
+            }
+            
+            for (int i = 0; i < count; i++)
                 LoadCodeOvl("block_" + i, ovlTable + i*0x24, true);
         } catch (MemoryAccessException e1) {
             e1.printStackTrace();
@@ -105,8 +126,9 @@ public class PokemonSnapLoader extends N64Loader {
             byte[] block = new byte[(int)(textEnd-textStart)];
             buff.position((int)romStart);
             buff.get(block);
-            
             createSegment(name + ".text", textStart, block, new MemPerm("R-X"), overlay);
+            
+            // .data and .rodata are merged together
             block = new byte[(int)(rodataEnd-dataStart)];
             buff.get(block);
             createSegment(name + ".data", dataStart, block, new MemPerm("RX-"), overlay);
