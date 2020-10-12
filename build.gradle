@@ -8,11 +8,12 @@
 //
 //         or
 //
-//     > gradle -PGHIDRA_INSTALL_DIR=<Absolute path to Ghidra>
+//     > gradle -P GHIDRA_INSTALL_DIR=<Absolute path to Ghidra>
 //
 // Gradle should be invoked from the directory of the project to build.  Please see the
 // application.gradle.version property in <GHIDRA_INSTALL_DIR>/Ghidra/application.properties
 // for the correction version of Gradle to use for the Ghidra installation you specify.
+// For Windows users follow these Gradle setup steps: https://blog.eldernode.com/install-and-configure-gradle-on-windows/.
 
 //----------------------START "DO NOT MODIFY" SECTION------------------------------
 def ghidraInstallDir
