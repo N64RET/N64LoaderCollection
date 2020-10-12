@@ -11,3 +11,12 @@ Note that most loaders are not finished yet and still need some research to be d
 - [Zelda64Loader](src/main/java/zelda64) (Loader for Ocarina of Time, Majora's Mask and Animal Crossing)
 - [PokemonStadiumLoader](src/main/java/pokemonstadium)
 - [Superman64Loader](src/main/java/superman64)
+
+## Build
+
+#### Setup
+
+Install [Java 11 SDK](https://www.oracle.com/java/technologies/javase-jdk11-downloads.html) and update your environment variables.
+
+#### Run
+See `build.gradle` for detailed instructions.
